@@ -1,0 +1,8 @@
+node_modules/
+.next/
+otp-data/*.pbf
+otp-data/*.zip
+otp-data/graph.obj
+otp-data/*.obj
+.env.local
+.DS_Store

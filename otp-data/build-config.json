@@ -1,0 +1,7 @@
+{
+  "transitModelTimeZone": "Europe/Berlin",
+  "transitServiceStart": "-P7D",
+  "transitServiceEnd": "P90D",
+  "maxTransferDuration": "PT30M",
+  "osmCacheDataInMem": false
+}

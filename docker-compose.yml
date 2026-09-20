@@ -1,0 +1,11 @@
+services:
+  otp:
+    image: docker.io/opentripplanner/opentripplanner:latest
+    volumes:
+      - ./otp-data:/var/opentripplanner
+    ports:
+      - "8080:8080"
+    command: ["--load", "--serve"]
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx6g -XX:+UseG1GC -XX:MaxGCPauseMillis=200
+    mem_limit: 8g
