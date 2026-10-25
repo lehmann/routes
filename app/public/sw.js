@@ -38,14 +38,19 @@ self.addEventListener('fetch', event => {
 async function networkFirst(request) {
   const cache = await caches.open(SHELL_CACHE);
   try {
-    const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
-    return response;
+    // Refaz o request pela URL: reenviar o request de navegação faz o Chrome falhar com ERR_CACHE_MISS
+    const response = await fetch(request.url);
+    if (response.ok) {
+      cache.put(request.url, response.clone());
+      return response;
+    }
   } catch {
-    const cached = await cache.match(request)
-      ?? (request.mode === 'navigate' ? await cache.match('/') : undefined);
-    return cached ?? Response.error();
+    // sem rede: cai no cache abaixo
   }
+  // Respostas não-ok (ex.: 5xx do túnel) também caem no cache, para não entregar HTML de erro a módulos JS
+  const cached = await cache.match(request.url)
+    ?? (request.mode === 'navigate' ? await cache.match('/') : undefined);
+  return cached ?? Response.error();
 }
 
 async function cacheFirst(request) {
