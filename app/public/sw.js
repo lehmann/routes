@@ -1,5 +1,5 @@
 // Service worker: app shell em network-first (fallback offline) e tiles do CARTO em cache-first
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `routes-shell-${VERSION}`;
 const TILE_CACHE = `routes-tiles-${VERSION}`;
 const TILE_HOST_SUFFIX = 'basemaps.cartocdn.com';
@@ -8,7 +8,7 @@ const MAX_TILES = 2000;
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(SHELL_CACHE)
-      .then(cache => cache.add('/').catch(() => {}))
+      .then(cache => cache.add('/').catch(err => console.error('[sw] install: cache.add("/") falhou', err)))
       .then(() => self.skipWaiting())
   );
 });
@@ -29,28 +29,42 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
   if (url.origin === self.location.origin) {
-    event.respondWith(networkFirst(request));
+    event.respondWith(networkFirst(request).catch(err => {
+      console.error('[sw] networkFirst lançou exceção', request.mode, request.url, err);
+      return Response.error();
+    }));
   } else if (url.hostname.endsWith(TILE_HOST_SUFFIX)) {
-    event.respondWith(cacheFirst(request));
+    event.respondWith(cacheFirst(request).catch(err => {
+      console.error('[sw] cacheFirst lançou exceção', request.url, err);
+      return Response.error();
+    }));
   }
 });
 
 async function networkFirst(request) {
-  const cache = await caches.open(SHELL_CACHE);
+  const isNavigation = request.mode === 'navigate';
   try {
-    // Refaz o request pela URL: reenviar o request de navegação faz o Chrome falhar com ERR_CACHE_MISS
-    const response = await fetch(request.url);
+    // Navegação é refeita pela URL: reenviar o request de navegação faz o Chrome falhar com ERR_CACHE_MISS.
+    // Os demais mantêm headers (ex.: RSC do Next, que sem eles devolve HTML no lugar do payload)
+    const response = await fetch(isNavigation ? request.url : request);
+    console.log('[sw] networkFirst fetch', request.mode, request.url, response.status, response.type, response.redirected);
     if (response.ok) {
-      cache.put(request.url, response.clone());
+      // Payload RSC não entra no cache da shell: senão o '/' offline passaria a servir RSC cru
+      if (!request.headers.has('RSC')) {
+        const cache = await caches.open(SHELL_CACHE);
+        cache.put(request.url, response.clone()).catch(err => console.error('[sw] cache.put falhou', request.url, err));
+      }
       return response;
     }
-  } catch {
-    // sem rede: cai no cache abaixo
+    console.warn('[sw] networkFirst resposta não-ok, tentando cache', request.url, response.status);
+  } catch (err) {
+    console.warn('[sw] networkFirst sem rede, tentando cache', request.url, err);
   }
   // Respostas não-ok (ex.: 5xx do túnel) também caem no cache, para não entregar HTML de erro a módulos JS
-  const cached = await cache.match(request.url)
-    ?? (request.mode === 'navigate' ? await cache.match('/') : undefined);
-  return cached ?? Response.error();
+  const cache = await caches.open(SHELL_CACHE).catch(() => null);
+  const cached = cache && (await cache.match(request.url)
+    ?? (isNavigation ? await cache.match('/') : undefined));
+  return cached || Response.error();
 }
 
 async function cacheFirst(request) {
@@ -64,7 +78,8 @@ async function cacheFirst(request) {
       trim(cache);
     }
     return response;
-  } catch {
+  } catch (err) {
+    console.error('[sw] cacheFirst fetch falhou', request.url, err);
     return Response.error();
   }
 }
