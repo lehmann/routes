@@ -6,7 +6,7 @@
 #   sudo bash deploy/install.sh
 #
 # The script will:
-#   1. Install system dependencies (Docker, Node.js 20, curl, git)
+#   1. Install system dependencies (Docker, curl, git) — Node.js fica dentro da imagem
 #   2. Clone the repo to /opt/routes (or use the current directory)
 #   3. Download OSM and GTFS data for Berlin
 #   4. Build the Next.js application
@@ -19,7 +19,7 @@ set -euo pipefail
 DEPLOY_DIR="/opt/routes"
 REPO_URL="https://github.com/lehmann/routes.git"
 BRANCH="main"
-APP_PORT="3000"
+APP_PORT="7201"
 OTP_PORT="8080"
 DOCKER_MEMORY="8g"
 DOCKER_HEAP="-Xmx6g"
@@ -75,15 +75,9 @@ install_deps() {
     ok "Docker already installed: $(docker --version)"
   fi
 
-  # Node.js 20
-  if ! node --version 2>/dev/null | grep -q "^v20"; then
-    info "Installing Node.js 20..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y -qq nodejs
-    ok "Node.js installed: $(node --version)"
-  else
-    ok "Node.js 20 already installed: $(node --version)"
-  fi
+  # Docker Compose v2 (plugin) é exigido pelo docker-compose.yml
+  docker compose version &>/dev/null || die "Docker Compose plugin ausente. Instale docker-compose-plugin."
+  ok "Docker Compose: $(docker compose version --short)"
 }
 
 # ── 2. Repo setup ──────────────────────────────────────────────────────────────
@@ -130,30 +124,15 @@ download_data() {
   fi
 }
 
-# ── 4. Environment ─────────────────────────────────────────────────────────────
-
-setup_env() {
-  ENV_FILE="$DEPLOY_DIR/app/.env.local"
-  if [ ! -f "$ENV_FILE" ]; then
-    info "Creating app/.env.local..."
-    cat > "$ENV_FILE" <<EOF
-OTP_URL=http://localhost:${OTP_PORT}/otp/gtfs/v1
-EOF
-    ok ".env.local created."
-  else
-    ok ".env.local already exists."
-  fi
-}
-
-# ── 5. Next.js build ───────────────────────────────────────────────────────────
+# ── 4. Next.js image build ─────────────────────────────────────────────────────
 
 build_app() {
-  info "Building Next.js application..."
+  info "Building Next.js image..."
   bash "$DEPLOY_DIR/scripts/build.sh"
-  ok "Next.js build complete."
+  ok "Next.js image build complete."
 }
 
-# ── 6. OTP graph build ─────────────────────────────────────────────────────────
+# ── 5. OTP graph build ─────────────────────────────────────────────────────────
 
 build_graph() {
   GRAPH_FILE="$DEPLOY_DIR/otp-data/graph.obj"
@@ -187,13 +166,9 @@ install_services() {
     cp "$DEPLOY_DIR/deploy/${timer}.timer" "$SYSTEMD_DIR/"
   done
 
-  # Patch Node.js path in routes-app.service
-  NODE_PATH=$(command -v node)
-  sed -i "s|/usr/bin/node|$NODE_PATH|g" "$SYSTEMD_DIR/routes-app.service"
-
-  # Patch docker compose path in routes-otp.service
+  # Patch docker path nas units que chamam docker compose
   DOCKER_PATH=$(command -v docker)
-  sed -i "s|/usr/bin/docker|$DOCKER_PATH|g" "$SYSTEMD_DIR/routes-otp.service"
+  sed -i "s|/usr/bin/docker|$DOCKER_PATH|g" "$SYSTEMD_DIR/routes-otp.service" "$SYSTEMD_DIR/routes-app.service"
 
   systemctl daemon-reload
   ok "Service files installed."
@@ -222,7 +197,6 @@ main() {
   install_deps
   setup_repo
   download_data
-  setup_env
   build_app
   build_graph
   install_services

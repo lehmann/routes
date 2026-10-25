@@ -1,4 +1,15 @@
+name: routes
+
 services:
+  app:
+    build: ./app
+    ports:
+      - "7201:3000"
+    environment:
+      - OTP_URL=http://otp:8080/otp/gtfs/v1
+    restart: unless-stopped
+    mem_limit: 1g
+
   otp:
     image: docker.io/opentripplanner/opentripplanner:latest
     volumes:

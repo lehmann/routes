@@ -40,4 +40,9 @@ if [ "$OTP_CONFIG_CHANGED" -gt 0 ] || [ "$DOCKER_CHANGED" -gt 0 ]; then
   systemctl restart routes-otp.service
 fi
 
+if [ "$DOCKER_CHANGED" -gt 0 ]; then
+  echo "[sync] Docker Compose changed — restarting routes-app..."
+  systemctl restart routes-app.service
+fi
+
 echo "[sync] Sync complete."
