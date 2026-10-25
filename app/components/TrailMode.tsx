@@ -11,9 +11,20 @@ interface Props {
   onBack: () => void;
 }
 
+// IDs das trilhas ocultas, para o estado de exibição sobreviver a sair e voltar do Trilheiro
+const HIDDEN_KEY = 'routes-trail-hidden';
+
+function loadHidden(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? '[]'));
+  } catch {
+    return new Set();
+  }
+}
+
 export default function TrailMode({ onBack }: Props) {
   const [files, setFiles] = useState<GpxFile[]>([]);
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [hidden, setHidden] = useState<Set<string>>(loadHidden);
   const [error, setError] = useState('');
   const { active: gpsActive, position, error: gpsError, start, stop } = useUserLocation();
 
@@ -28,6 +39,14 @@ export default function TrailMode({ onBack }: Props) {
       })))
       .catch(() => setError('Não foi possível ler os arquivos salvos.'));
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden]));
+    } catch {
+      // storage bloqueado ou cheio: a seleção vale só nesta sessão
+    }
+  }, [hidden]);
 
   const visibleFiles = useMemo(() => files.filter(f => !hidden.has(f.id)), [files, hidden]);
 
