@@ -1,0 +1,12 @@
+[Unit]
+Description=Routes — GitHub Sync Timer (every 5 minutes)
+
+[Timer]
+# First check 2 minutes after boot (gives network time to settle)
+OnBootSec=2min
+# Then every 5 minutes
+OnUnitActiveSec=5min
+Unit=routes-sync.service
+
+[Install]
+WantedBy=timers.target

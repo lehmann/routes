@@ -1,0 +1,23 @@
+[Unit]
+Description=Routes — OpenTripPlanner 2 Routing Engine
+Documentation=https://docs.opentripplanner.org
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/routes
+# Run docker compose in foreground so systemd manages the lifecycle
+ExecStart=/usr/bin/docker compose up --remove-orphans
+ExecStop=/usr/bin/docker compose down
+Restart=on-failure
+RestartSec=30
+TimeoutStartSec=120
+TimeoutStopSec=60
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=routes-otp
+
+[Install]
+WantedBy=multi-user.target

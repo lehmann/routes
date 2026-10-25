@@ -1,0 +1,15 @@
+[Unit]
+Description=Routes — VBB GTFS Weekly Update
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/routes
+ExecStart=/opt/routes/scripts/update-gtfs.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=routes-gtfs
+# Graph rebuild can take up to 20 minutes
+TimeoutStartSec=1800

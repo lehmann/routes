@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import PlaceSearch from '../components/PlaceSearch';
+import TrailMode from '../components/TrailMode';
 
 const RouteMap = dynamic(() => import('../components/RouteMap'), { ssr: false });
 
@@ -32,6 +33,7 @@ export default function Home() {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [trailMode, setTrailMode] = useState(false);
 
   const addStop = () => {
     const stopMinutes = 30;
@@ -105,11 +107,16 @@ export default function Home() {
 
   const canPlan = (arriveBy || leaveBy) && waypoints.every(w => w.lat && w.lon);
 
+  if (trailMode) return <TrailMode onBack={() => setTrailMode(false)} />;
+
   return (
     <main className="h-screen flex overflow-hidden bg-gray-50">
       {/* Left panel */}
       <div className="w-[520px] shrink-0 overflow-y-auto p-6 space-y-4 border-r border-gray-200 bg-white">
-        <h1 className="text-xl font-bold text-gray-900">Berlin Transit Planner</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-900">Berlin Transit Planner</h1>
+          <button onClick={() => setTrailMode(true)} className="text-sm text-blue-600 hover:underline">🥾 Trilheiro</button>
+        </div>
 
         {/* Waypoints */}
         <div className="space-y-2">

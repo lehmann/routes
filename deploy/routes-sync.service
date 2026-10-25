@@ -1,0 +1,14 @@
+[Unit]
+Description=Routes — GitHub Repository Sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/routes
+ExecStart=/opt/routes/scripts/sync.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=routes-sync
+# Allow enough time for a full Next.js rebuild if app code changed
+TimeoutStartSec=300

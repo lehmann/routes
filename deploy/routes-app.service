@@ -1,0 +1,20 @@
+[Unit]
+Description=Routes — Next.js Frontend Application
+After=network-online.target routes-otp.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/routes/app
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=OTP_URL=http://localhost:8080/otp/gtfs/v1
+ExecStart=/usr/bin/node node_modules/.bin/next start --port 3000
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=routes-app
+
+[Install]
+WantedBy=multi-user.target
