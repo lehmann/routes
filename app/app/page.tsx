@@ -110,9 +110,9 @@ export default function Home() {
   if (trailMode) return <TrailMode onBack={() => setTrailMode(false)} />;
 
   return (
-    <main className="h-screen flex overflow-hidden bg-gray-50">
-      {/* Left panel */}
-      <div className="w-[520px] shrink-0 overflow-y-auto p-6 space-y-4 border-r border-gray-200 bg-white">
+    <main className="h-dvh flex flex-col md:flex-row overflow-hidden bg-gray-50">
+      {/* Left panel — no mobile fica em cima, com altura limitada; no desktop é a coluna lateral */}
+      <div className="h-[55dvh] md:h-auto w-full md:w-[520px] shrink-0 overflow-y-auto p-4 md:p-6 space-y-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Berlin Transit Planner</h1>
           <button onClick={() => setTrailMode(true)} className="text-sm text-blue-600 hover:underline">🥾 Trilheiro</button>
@@ -178,7 +178,7 @@ export default function Home() {
 
         {/* Global time constraints */}
         <div className="bg-gray-50 rounded-lg border p-3 space-y-2">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium text-gray-600 w-20">Leave by</span>
             <input
               type="datetime-local"
@@ -188,7 +188,7 @@ export default function Home() {
             />
             {leaveBy && <button onClick={() => setLeaveBy('')} className="text-xs text-gray-400 hover:text-gray-600">✕</button>}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-xs font-medium text-gray-600 w-20">Arrive by</span>
             <input
               type="datetime-local"
@@ -247,7 +247,7 @@ export default function Home() {
       </div>
 
       {/* Right panel — map */}
-      <div className="flex-1 relative">
+      <div className="flex-1 min-h-0 relative">
         <RouteMap waypoints={waypoints} legs={result?.legs} />
       </div>
     </main>

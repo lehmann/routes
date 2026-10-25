@@ -69,9 +69,9 @@ export default function TrailMode({ onBack }: Props) {
   });
 
   return (
-    <main className="h-screen flex overflow-hidden bg-gray-50">
-      {/* Left panel */}
-      <div className="w-[520px] shrink-0 overflow-y-auto p-6 space-y-4 border-r border-gray-200 bg-white">
+    <main className="h-dvh flex flex-col md:flex-row overflow-hidden bg-gray-50">
+      {/* Left panel — no mobile fica em cima, com altura limitada; no desktop é a coluna lateral */}
+      <div className="h-[55dvh] md:h-auto w-full md:w-[520px] shrink-0 overflow-y-auto p-4 md:p-6 space-y-4 border-b md:border-b-0 md:border-r border-gray-200 bg-white">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">🥾 Trilheiro</h1>
           <button onClick={onBack} className="text-sm text-blue-600 hover:underline">← Planejador</button>
@@ -133,7 +133,7 @@ export default function TrailMode({ onBack }: Props) {
       </div>
 
       {/* Right panel — map */}
-      <div className="flex-1 relative">
+      <div className="flex-1 min-h-0 relative">
         <TrailMap files={visibleFiles} position={position} />
       </div>
     </main>
