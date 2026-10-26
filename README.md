@@ -1,6 +1,6 @@
 # Routes — Transit Planner
 
-Planejador de rotas de transporte público com suporte a **paradas intermediárias programadas** e restrições de horário de chegada e partida.
+Planejador de rotas de transporte público com suporte a **paradas intermediárias programadas** e restrições de horário de chegada e partida. Inclui o **Trilheiro**, um modo para visualizar trilhas GPX com funcionamento offline.
 
 ## Conceito
 
@@ -22,8 +22,10 @@ O sistema calcula o melhor conjunto de linhas de transporte público que satisfa
 | Dados de trânsito | VBB GTFS (Berlin-Brandenburg) |
 | Dados de mapa | OpenStreetMap (Geofabrik) |
 | Geocoding | Nominatim (OpenStreetMap, sem API key) |
-| Frontend + API | Next.js 14 (TypeScript, Tailwind) |
-| Mapa interativo | MapLibre GL + react-map-gl |
+| Frontend + API | Next.js 16 (TypeScript, Tailwind) |
+| Mapa interativo | MapLibre GL 5 + react-map-gl 8 |
+
+> **Não atualizar o MapLibre para 6.x.** Com a 6.10, o mapa não pedia os tiles e o Chrome acusava `Failed to load module script` (MIME `text/html`). A 5.24 foi validada em teste com dados e GPX.
 
 ## Setup
 
@@ -66,6 +68,15 @@ npm run dev
 
 Acesse: `http://localhost:3000`
 
+### 5b. Container do frontend (porta 7201)
+
+```bash
+docker compose build app
+docker compose up -d app
+```
+
+O service worker só é registrado em build de produção, então o modo offline e o cache não funcionam no `npm run dev`.
+
 ### 6. Explorar a API do OTP2
 
 GraphiQL embutido: `http://localhost:8080/graphiql`
@@ -74,23 +85,45 @@ GraphiQL embutido: `http://localhost:8080/graphiql`
 
 ```
 routes/
-├── docker-compose.yml           # OTP2 (porta 8080, -Xmx6g, mem_limit 8g)
+├── docker-compose.yml           # OTP2 (porta 8080, -Xmx6g, mem_limit 8g) e app (porta 7201)
 ├── otp-data/
 │   ├── berlin.osm.pbf           # dados OSM Berlin
 │   ├── vbb-gtfs.zip             # GTFS VBB Berlin-Brandenburg
 │   ├── build-config.json        # timezone Europe/Berlin, período 7d–90d
 │   └── router-config.json       # 5 itinerários, walkSpeed 1.4 m/s
-└── app/                         # Next.js 14
+└── app/                         # Next.js 16
+    ├── public/
+    │   └── sw.js                 # service worker (cache do shell, assets e tiles)
     ├── components/
     │   ├── RouteMap.tsx          # mapa MapLibre com marcadores e linhas de rota
-    │   └── PlaceSearch.tsx       # busca de lugares via Nominatim com autocomplete
+    │   ├── PlaceSearch.tsx       # busca de lugares via Nominatim com autocomplete
+    │   ├── ServiceWorkerRegistration.tsx
+    │   ├── TrailMode.tsx         # Trilheiro: lista de GPX, GPS e visibilidade das trilhas
+    │   └── TrailMap.tsx          # mapa do Trilheiro com as trilhas e a posição
     ├── lib/
     │   ├── otp.ts               # cliente GraphQL do OTP2 (planConnection)
-    │   └── planner.ts           # backward propagation + forward planning
+    │   ├── planner.ts           # backward propagation + forward planning
+    │   ├── gpx.ts               # parsing de GPX (trilhas e POIs)
+    │   ├── gpx-store.ts         # arquivos GPX no IndexedDB
+    │   └── useUserLocation.ts   # geolocalização contínua (GPS)
     └── app/
         ├── api/plan/route.ts    # POST /api/plan
-        └── page.tsx             # UI: layout duas colunas (formulário + mapa)
+        └── page.tsx             # UI: formulário e mapa (lado a lado no desktop, empilhados no celular)
 ```
+
+## Trilheiro
+
+Modo para visualizar trilhas GPX, pensado para uso em campo, inclusive sem sinal.
+
+- **Arquivos:** os GPX enviados ficam no IndexedDB do navegador (`routes` / `gpx`).
+- **Visibilidade:** quais trilhas estão ocultas fica no `localStorage` (`routes-trail-hidden`), então a seleção continua ao sair para o Planejador e voltar.
+- **GPS:** o botão "Ativar GPS" mostra a posição atual com a precisão em metros.
+- **Service worker** (`app/public/sw.js`, versão atual `v4`):
+  - navegação em rede primeiro, com o `/` em cache como fallback offline;
+  - `/_next/static/` e tiles do CARTO em cache-first;
+  - o restante (RSC, `/api/plan`, o próprio `sw.js`) segue direto para a rede.
+
+  Ao alterar o `sw.js`, incremente `VERSION`: o `activate` apaga os caches de versões antigas. No navegador, faça Unregister do worker antigo para forçar a troca.
 
 ## API
 
@@ -142,6 +175,11 @@ Pelo menos um de `arriveBy` ou `leaveBy` é obrigatório.
   "warnings": []
 }
 ```
+
+## Layout
+
+- Desktop (≥ 768px): painel de 520px à esquerda e mapa ocupando o resto.
+- Celular: painel empilhado no topo, com 55% da altura da tela (`dvh`), e o mapa embaixo.
 
 ## Atualizar dados GTFS
 

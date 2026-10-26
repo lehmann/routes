@@ -4,15 +4,20 @@
 
 Planejador de rotas de transporte público com paradas intermediárias programadas e restrições de horário. O diferencial é o algoritmo de **backward propagation** em `app/lib/planner.ts` — ele resolve restrições de tempo trabalhando de trás para frente a partir do deadline final.
 
+Inclui também o **Trilheiro**: visualização de trilhas GPX com funcionamento offline, em `app/components/TrailMode.tsx`.
+
 ## Arquitetura
 
 - **OTP2 v2.11** (Docker, porta 8080) — motor de roteamento, API GraphQL em `/otp/gtfs/v1`
-- **Next.js 14** (`app/`) — frontend React + API Routes
+- **Next.js 16** (`app/`) — frontend React + API Routes
 - **`/api/plan`** (POST) — endpoint principal; orquestra o planner
 - **`lib/otp.ts`** — cliente GraphQL para o OTP2 (`planLeg` via `planConnection`)
 - **`lib/planner.ts`** — `planRoute()`: backward propagation ou forward planning
 - **`components/RouteMap.tsx`** — mapa MapLibre com marcadores e linhas de rota por modo
 - **`components/PlaceSearch.tsx`** — autocomplete de lugares via Nominatim (OSM)
+- **`components/TrailMode.tsx`** / **`TrailMap.tsx`** — Trilheiro (lista de GPX, GPS e mapa das trilhas)
+- **`lib/gpx-store.ts`** — GPX salvos no IndexedDB (`routes` / `gpx`)
+- **`public/sw.js`** — service worker (versão atual `v4`)
 
 ## Algoritmos de planejamento
 
@@ -50,6 +55,9 @@ Pontos de atenção:
 - Não trocar o algoritmo de backward propagation por forward search quando `arriveBy` estiver definido
 - Não usar `--load --serve` no Docker antes de `otp-data/graph.obj` existir
 - Não usar `Float!` para coordenadas nas variáveis GraphQL — usar `CoordinateValue!`
+- Não atualizar o **MapLibre GL para 6.x**: fixado em 5.x (`^5.24.0`). Com a 6.10 os tiles não eram pedidos e o Chrome acusava `Failed to load module script`
+- Não guardar HTML sob uma URL de script ou asset no service worker
+- Não fazer **commit, push ou PR** sem pedido explícito do usuário
 
 ## Comandos úteis
 
@@ -59,6 +67,9 @@ docker compose up
 
 # Frontend (requer Node 20 via nvm)
 cd app && nvm use && npm run dev
+
+# Container do frontend (porta 7201) — o único jeito de testar o service worker localmente
+docker compose build app && docker compose up -d app
 
 # Testar OTP2 via GraphQL
 curl -s http://localhost:8080/otp/gtfs/v1 -X POST -H "Content-Type: application/json" \
@@ -75,14 +86,26 @@ curl -L -o otp-data/vbb-gtfs.zip https://unternehmen.vbb.de/gtfs
 |---|---|
 | `otp-data/build-config.json` | Timezone Europe/Berlin, período 7d atrás–90d à frente |
 | `otp-data/router-config.json` | 5 itinerários por query, walkSpeed 1.4 m/s |
-| `docker-compose.yml` | `-Xmx6g`, `mem_limit: 8g`, `G1GC` |
+| `docker-compose.yml` | `-Xmx6g`, `mem_limit: 8g`, `G1GC` (OTP); app na porta 7201 |
 
 ## Mapa (MapLibre GL)
 
+- Versão fixada em **5.x**; o `react-map-gl` é a 8.x
 - CSS do MapLibre importado em `app/globals.css` via `@import` — NÃO importar dentro de client components
 - O `<Map>` usa `style={{ position: 'absolute', inset: 0 }}` para preencher o container flex corretamente
 - Estilo de mapa: CARTO Voyager (`https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json`) — sem API key
 - Polylines das pernas decodificados via algoritmo Google Encoded Polyline embutido em `RouteMap.tsx`
+
+## Layout
+
+- Raiz em `h-dvh`; abaixo de `md` (768px) o painel fica empilhado acima do mapa, com `55dvh`
+- Desktop: painel de 520px à esquerda, mapa no resto
+
+## Trilheiro e service worker
+
+- Ocultar/exibir trilhas é persistido em `localStorage` (`routes-trail-hidden`), para sobreviver a sair e voltar ao modo
+- `public/sw.js`: não é registrado em dev (só em produção). Navegação em rede primeiro, com `/` em cache como fallback; `/_next/static/` e tiles CARTO em cache-first; o restante passa direto para a rede
+- Ao alterar o `sw.js`, incremente `VERSION` (o `activate` apaga caches antigos) e faça Unregister do worker antigo no navegador para testar
 
 ## Geocoding (Nominatim)
 
